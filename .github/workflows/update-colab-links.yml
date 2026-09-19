@@ -1,0 +1,57 @@
+name: Update Colab links
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "labs/**/*.ipynb"
+      - "practices/**/*.ipynb"
+      - "scripts/update_colab_links.py"
+      - ".github/workflows/update-colab-links.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-colab-links-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Generate README links
+        run: >-
+          python scripts/update_colab_links.py
+          --repository "${{ github.repository }}"
+          --branch "${{ github.ref_name }}"
+
+      - name: Detect README changes
+        id: readme
+        shell: bash
+        run: |
+          if git diff --quiet -- README.md; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push README
+        if: steps.readme.outputs.changed == 'true'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "docs: update Google Colab links"
+          git push

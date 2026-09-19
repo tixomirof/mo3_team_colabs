@@ -21,6 +21,10 @@
 
 -------------------------------------------
 ## Ссылки на актуальные Google Colab:
-Ниже приложены списки ссылок Google Colab последних актуальных версий на каждую работу:
-* Лабораторная работа №1: -
-* Лабораторная работа №2: -
+<!-- BEGIN AUTO-GENERATED COLAB LINKS -->
+Лабораторные работы:
+- Лабораторная работа №1: [Открыть в Google Colab](https://colab.research.google.com/github/tixomirof/mo3_team_colabs/blob/main/labs/Lab01_Sem2.ipynb)
+
+Практические работы:
+- Практических работ пока нет.
+<!-- END AUTO-GENERATED COLAB LINKS -->
