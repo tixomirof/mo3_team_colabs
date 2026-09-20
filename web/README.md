@@ -24,3 +24,4 @@ docker compose exec ollama ollama pull qwen2.5:0.5b
 - `ollama` - локальный inference-сервер
 - `qwen2.5:0.5b` - небольшая instruct-модель, выбранная для примера
 
+![Интерфейс локального AI-чата](image.png)
