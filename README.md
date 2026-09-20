@@ -26,5 +26,5 @@
 - Лабораторная работа №1: [Открыть в Google Colab](https://colab.research.google.com/github/tixomirof/mo3_team_colabs/blob/main/labs/Lab01_Sem2.ipynb)
 
 Практические работы:
-- Практических работ пока нет.
+- Практическая работа №1: [Открыть в Google Colab](https://colab.research.google.com/github/tixomirof/mo3_team_colabs/blob/main/practices/Practice01_Sem2.ipynb)
 <!-- END AUTO-GENERATED COLAB LINKS -->
