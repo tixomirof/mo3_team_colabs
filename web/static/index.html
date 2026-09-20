@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Local AI Chat</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: #f3f4f6; color: #111827; font: 15px Arial, sans-serif; }
+    .app { width: min(100%, 920px); height: 100vh; margin: auto; display: flex; flex-direction: column; background: #fff; }
+    .header { display: flex; align-items: center; gap: 12px; padding: 14px 20px; color: #fff; background: #2563eb; }
+    .avatar { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; background: #dbeafe; color: #1d4ed8; font-weight: 700; }
+    .header h1 { margin: 0; font-size: 17px; }
+    .status { margin-top: 3px; color: #bfdbfe; font-size: 12px; }
+    .messages { flex: 1; overflow-y: auto; padding: 24px clamp(14px, 5vw, 56px); background: #f9fafb; }
+    .message { display: flex; margin: 0 0 18px; }
+    .message.user { justify-content: flex-end; }
+    .bubble { max-width: min(78%, 620px); padding: 10px 14px; border-radius: 16px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.45; }
+    .assistant .bubble { border-bottom-left-radius: 4px; background: #e5e7eb; }
+    .user .bubble { border-bottom-right-radius: 4px; background: #2563eb; color: #fff; }
+    .system { justify-content: center; color: #6b7280; font-size: 13px; }
+    .system .bubble { padding: 0; background: transparent; }
+    .error .bubble { background: #fee2e2; color: #b91c1c; }
+    .composer { display: flex; gap: 10px; padding: 14px 18px; border-top: 1px solid #e5e7eb; background: #fff; }
+    #message { flex: 1; min-width: 0; padding: 12px 15px; border: 1px solid #d1d5db; border-radius: 22px; outline: none; font: inherit; }
+    #message:focus { border-color: #2563eb; box-shadow: 0 0 0 3px #dbeafe; }
+    button { width: 44px; height: 44px; border: 0; border-radius: 50%; background: #2563eb; color: #fff; cursor: pointer; font-size: 19px; }
+    button:disabled { opacity: .5; cursor: wait; }
+    @media (max-width: 600px) { .app { height: 100dvh; } .bubble { max-width: 88%; } .composer { padding: 10px; } }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="header">
+      <div class="avatar">AI</div>
+      <div><h1>Локальный помощник</h1><div class="status">Модель Qwen 0.5B работает на вашем компьютере</div></div>
+    </header>
+    <section id="messages" class="messages" aria-live="polite">
+      <div class="message system"><div class="bubble">Напишите сообщение, чтобы начать чат.</div></div>
+    </section>
+    <form id="chat-form" class="composer">
+      <input id="message" type="text" placeholder="Сообщение" autocomplete="off" autofocus>
+      <button id="send" type="submit" aria-label="Отправить">➤</button>
+    </form>
+  </main>
+  <script>
+    const form = document.querySelector('#chat-form');
+    const input = document.querySelector('#message');
+    const messages = document.querySelector('#messages');
+    const send = document.querySelector('#send');
+    function addMessage(text, role) {
+      const row = document.createElement('div');
+      row.className = `message ${role}`;
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.textContent = text;
+      row.appendChild(bubble);
+      messages.appendChild(row);
+      messages.scrollTop = messages.scrollHeight;
+      return bubble;
+    }
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const text = input.value.trim();
+      if (!text || send.disabled) return;
+      addMessage(text, 'user');
+      input.value = '';
+      send.disabled = true;
+      const answer = addMessage('', 'assistant');
+      try {
+        const response = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text }) });
+        if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const events = buffer.split('\n\n');
+          buffer = events.pop();
+          for (const eventText of events) {
+            const line = eventText.split('\n').find((item) => item.startsWith('data: '));
+            if (!line) continue;
+            const data = JSON.parse(line.slice(6));
+            if (data.error) throw new Error(data.error);
+            answer.textContent += data.content || '';
+            messages.scrollTop = messages.scrollHeight;
+          }
+        }
+      } catch (error) {
+        answer.parentElement.className = 'message error';
+        answer.textContent = `Не удалось получить ответ: ${error.message}`;
+      } finally {
+        send.disabled = false;
+        input.focus();
+      }
+    });
+  </script>
+</body>
+</html>
