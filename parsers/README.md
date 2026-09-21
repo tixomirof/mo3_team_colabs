@@ -1,22 +1,32 @@
-# Парсер резюме hh.ru
+# Парсер hh.ru
 
-Собирает обезличенные карточки резюме программистов через официальный API hh.ru, убирает ФИО и контакты, ставит один из шести стеков: ASP.NET, React, Python, Java, PHP, Node.js. Результат пишется в CSV.
+Собирает карточки программистов и ставит один из шести стеков: ASP.NET, React, Python, Java, PHP, Node.js.
 
-Нужен аккаунт работодателя с доступом к базе резюме. Логин и пароль не используются.
+- `vacancies` — публичная RSS-выдача и открытые страницы вакансий. Токен не нужен.
+- `resumes` — обезличенные резюме через API. Нужен одобренный OAuth-токен работодателя.
 
-## Запуск
+Поиск резюме и закрытый API вакансий без заявки недоступны. HTML-вход и сессию сайта парсер не обходит.
+
+## Запуск без токена
 
 ```bash
 pip install -r requirements.txt
-python hh_resume_parser.py --check
-python hh_resume_parser.py --per-class 100 --out resumes.csv
+python hh_resume_parser.py --source vacancies --check
+python hh_resume_parser.py --source vacancies --per-class 20 --out vacancies.csv
 ```
 
-`--check` только проверяет токен. `--per-class` — сколько резюме брать на каждый стек.
+На пару хватит `--per-class 20`. RSS отдаёт около 20 карточек на запрос, поэтому больше может не набраться.
+
+## Запуск по резюме
+
+```bash
+python hh_resume_parser.py --source resumes --check
+python hh_resume_parser.py --source resumes --per-class 100 --out resumes.csv
+```
 
 ## Переменные в `.env`
 
 | Переменная | Что указать |
 |---|---|
-| `HH_ACCESS_TOKEN` | OAuth-токен приложения с [dev.hh.ru](https://dev.hh.ru), не пароль аккаунта |
-| `HH_USER_AGENT` | Имя приложения и контактная почта, например `MO3ResumeParser/1.0 (you@example.com)` |
+| `HH_USER_AGENT` | Имя приложения и почта, например `MO3Parser/1.0 (you@mail.ru)`. Желательно для обоих режимов. |
+| `HH_ACCESS_TOKEN` | OAuth-токен с [dev.hh.ru](https://dev.hh.ru). Нужен только для `--source resumes`. |
