@@ -28,4 +28,5 @@
 
 Практические работы:
 - Практическая работа №1: [Открыть в Google Colab](https://colab.research.google.com/github/tixomirof/mo3_team_colabs/blob/main/practices/Practice01_Sem2.ipynb)
+- Практическая работа №2: [Открыть в Google Colab](https://colab.research.google.com/github/tixomirof/mo3_team_colabs/blob/main/practices/Practice02_translate-colab.ipynb)
 <!-- END AUTO-GENERATED COLAB LINKS -->
