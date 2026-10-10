@@ -26,6 +26,7 @@
 - Лабораторная работа №1: [Открыть в Google Colab](https://colab.research.google.com/github/tixomirof/mo3_team_colabs/blob/main/labs/Lab01_Sem2_resumes.ipynb)
 - Лабораторная работа №2: [Открыть в Google Colab](https://colab.research.google.com/github/tixomirof/mo3_team_colabs/blob/main/labs/Lab02_Word2Vec_FastText_resumes.ipynb)
 - Лабораторная работа №3: [Открыть в Google Colab](https://colab.research.google.com/github/tixomirof/mo3_team_colabs/blob/main/labs/Lab03_ML-HW07.ipynb)
+- Лабораторная работа №4: [Открыть в Google Colab](https://colab.research.google.com/github/tixomirof/mo3_team_colabs/blob/main/labs/Lab04_ML-HW08.ipynb)
 
 Практические работы:
 - Практическая работа №1: [Открыть в Google Colab](https://colab.research.google.com/github/tixomirof/mo3_team_colabs/blob/main/practices/Practice01_Sem2.ipynb)
