@@ -31,4 +31,5 @@
 Практические работы:
 - Практическая работа №1: [Открыть в Google Colab](https://colab.research.google.com/github/tixomirof/mo3_team_colabs/blob/main/practices/Practice01_Sem2.ipynb)
 - Практическая работа №2: [Открыть в Google Colab](https://colab.research.google.com/github/tixomirof/mo3_team_colabs/blob/main/practices/Practice02_translate-colab.ipynb)
+- Практическая работа №3: [Открыть в Google Colab](https://colab.research.google.com/github/tixomirof/mo3_team_colabs/blob/main/practices/Practice03_AI-Agents%20%D0%98%D1%81%D1%81%D0%BB%D0%B5%D0%B4%D0%BE%D0%B2%D0%B0%D0%BD%D0%B8%D0%B5.ipynb)
 <!-- END AUTO-GENERATED COLAB LINKS -->
