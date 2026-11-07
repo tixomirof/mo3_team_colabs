@@ -1,27 +1,38 @@
-# Local AI Chat
+# Local AI Chat + RAG по резюме
 
-Локальный чат с моделью `qwen2.5:0.5b` через Ollama.
+Чат в браузере. По умолчанию отвечает **RAG** по `data/resumes_ru_6000_labeled.csv` через Ollama (`qwen3:4b-instruct`).
 
 ## Запуск
 
-```bash
-cd web
-docker compose up -d --build
-```
+1. Ollama с моделью:
+   ```bash
+   ollama pull qwen3:4b-instruct
+   ```
+2. Один раз построить FAISS (кэш в `~/.cache/mo3_ml_hw10_rag/`):
+   ```bash
+   cd labs/ML-HW10
+   set LLM_MODEL=qwen3:4b-instruct
+   python -c "from rag_system import ensure_resume_indices; print({k:v['index'].ntotal for k,v in ensure_resume_indices().items()})"
+   ```
+3. Web:
+   ```bash
+   cd web
+   set LLM_BACKEND=ollama
+   set LLM_MODEL=qwen3:4b-instruct
+   set RAG_ENABLED=1
+   set RAG_BASE=resumes_no_tags
+   python -m uvicorn main:app --host 127.0.0.1 --port 8000
+   ```
+4. Открыть http://127.0.0.1:8000
 
+## Переменные
 
-```bash
-docker compose exec ollama ollama pull qwen2.5:0.5b
-```
+| Переменная | По умолчанию | Смысл |
+|---|---|---|
+| `RAG_ENABLED` | `1` | RAG вкл/выкл |
+| `RAG_BASE` | `resumes_no_tags` | или `resumes_with_tags` |
+| `RAG_TOP_K` | `3` | сколько документов в контекст |
+| `RAG_DISTANCE` | `55` | порог L2; выше = жёстче «нет данных» |
+| `LLM_MODEL` | `qwen3:4b-instruct` | модель Ollama |
 
-Откройте http://localhost:8000.
-
-Первый запуск скачивает модель примерно на 400 MB. Все последующие запросы выполняются локально, API-ключ и интернет для чата не нужны.
-
-## Компоненты
-
-- `web` - FastAPI и web-интерфейс
-- `ollama` - локальный inference-сервер
-- `qwen2.5:0.5b` - небольшая instruct-модель, выбранная для примера
-
-![Интерфейс локального AI-чата](image.png)
+Ноутбук сдачи: `labs/ML-HW10/ML-HW10_RAG_resumes.ipynb`.

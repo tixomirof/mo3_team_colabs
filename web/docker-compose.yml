@@ -1,44 +1,31 @@
 services:
-  ollama:
-    image: ollama/ollama:latest
-    container_name: chat_ollama
-    volumes:
-      - ollama_data:/root/.ollama
-    ports:
-      - "11434:11434"
-    command: ["serve"]
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-    restart: unless-stopped
-
-  model-init:
-    image: ollama/ollama:latest
-    container_name: chat_model_init
-    environment:
-      OLLAMA_HOST: http://ollama:11434
-    depends_on:
-      ollama:
-        condition: service_healthy
-    volumes:
-      - ollama_data:/root/.ollama
-    command: ["pull", "qwen2.5:0.5b"]
-    restart: "no"
-
   web:
     build: .
     container_name: chat_web
     ports:
       - "8000:8000"
     environment:
-      OLLAMA_BASE_URL: http://ollama:11434
-      OLLAMA_MODEL: qwen2.5:0.5b
-    depends_on:
-      model-init:
-        condition: service_completed_successfully
+      REPO_ROOT: /repo
+      LLM_BACKEND: ${LLM_BACKEND:-ollama}
+      # host Ollama (не docker-ollama)
+      # всегда host Ollama; не брать LLM_BASE_URL с хоста (там часто localhost)
+      LLM_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      LLM_MODEL: ${LLM_MODEL:-qwen3:4b-instruct}
+      LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.45}
+      LLM_TOP_P: ${LLM_TOP_P:-0.9}
+      LLM_TOP_K: ${LLM_TOP_K:-40}
+      LLM_MAX_TOKENS: ${LLM_MAX_TOKENS:-256}
+      RAG_ENABLED: ${RAG_ENABLED:-1}
+      RAG_BASE: ${RAG_BASE:-resumes_no_tags}
+      RAG_TOP_K: ${RAG_TOP_K:-5}
+      RAG_DISTANCE: ${RAG_DISTANCE:-55}
+      RAG_CACHE_DIR: /root/.cache/mo3_ml_hw10_rag
+    volumes:
+      # корень репо: labs/ML-HW10 + data для RAG
+      - ..:/repo:ro
+      # уже собранный FAISS-кэш с хоста
+      - ${USERPROFILE}/.cache/mo3_ml_hw10_rag:/root/.cache/mo3_ml_hw10_rag
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
-
-volumes:
-  ollama_data:
