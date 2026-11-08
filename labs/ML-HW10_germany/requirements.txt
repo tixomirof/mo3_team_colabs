@@ -1,0 +1,10 @@
+faiss-cpu
+httpx
+matplotlib
+numpy
+pandas
+torch>=2.6
+transformers>=4.48,<5
+accelerate
+safetensors
+sentencepiece
