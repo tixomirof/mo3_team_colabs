@@ -1,4 +1,4 @@
-"""Отбирает 18 резюме и кладёт в labs/ML-HW10/data/."""
+"""Отбирает 18 резюме и кладёт в корневой data/."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ import pandas as pd
 
 from rag_system import anonymize_text, sample_resumes
 
-LAB_DIR = Path(__file__).resolve().parent
-DATA_DIR = LAB_DIR / "data"
+ROOT = Path(__file__).resolve().parents[2]
+DATA_DIR = ROOT / "data"
 N = 18
 
 
@@ -21,7 +21,7 @@ def main():
     df.to_csv(out_csv, index=False, encoding="utf-8-sig")
 
     # по одному txt на кандидата — удобно смотреть глазами
-    txt_dir = DATA_DIR / "raw"
+    txt_dir = DATA_DIR / "resumes_selected_raw"
     txt_dir.mkdir(exist_ok=True)
     for _, row in df.iterrows():
         cid = int(row["candidate_id"])

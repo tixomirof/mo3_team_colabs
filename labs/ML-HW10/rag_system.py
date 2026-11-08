@@ -18,10 +18,10 @@ from transformers import AutoModel, AutoTokenizer
 
 ROOT = Path(__file__).resolve().parents[2]
 LAB_DIR = Path(__file__).resolve().parent
-LAB_DATA_DIR = LAB_DIR / "data"
-# отобранные 10–20 резюме рядом с лабой; fallback — полный датасет
+# отобранные резюме лежат в корневом data/ рядом с полным датасетом
+LAB_DATA_DIR = ROOT / "data"
 SELECTED_CSV = LAB_DATA_DIR / "resumes_selected.csv"
-SOURCE_CSV = ROOT / "data" / "resumes_ru_6000_labeled.csv"
+SOURCE_CSV = LAB_DATA_DIR / "resumes_ru_6000_labeled.csv"
 DATA_CSV = SELECTED_CSV if SELECTED_CSV.exists() else SOURCE_CSV
 # ASCII-путь: FAISS на Windows ломается на кириллице в пути
 CACHE_DIR = Path(os.environ.get("RAG_CACHE_DIR", str(Path.home() / ".cache" / "mo3_ml_hw10_rag")))

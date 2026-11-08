@@ -32,4 +32,4 @@ $env:LLM_MODEL="qwen3:4b-instruct"
 python -c "from rag_system import ensure_resume_indices; print({k:v['index'].ntotal for k,v in ensure_resume_indices().items()})"
 ```
 
-Ноутбук сдачи: `labs/ML-HW10/ML-HW10_RAG_resumes.ipynb`.
+Ноутбук сдачи: `labs/Lab05_ML-HW10_resumes.ipynb` (данные: `data/resumes_selected.csv`).
