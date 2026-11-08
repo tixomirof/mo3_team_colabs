@@ -7,8 +7,7 @@ services:
     environment:
       REPO_ROOT: /repo
       LLM_BACKEND: ${LLM_BACKEND:-ollama}
-      # host Ollama (не docker-ollama)
-      # всегда host Ollama; не брать LLM_BASE_URL с хоста (там часто localhost)
+      # Ollama/llama на хосте (поднимается start.ps1 вместе с контейнером)
       LLM_BASE_URL: http://host.docker.internal:11434
       OLLAMA_BASE_URL: http://host.docker.internal:11434
       LLM_MODEL: ${LLM_MODEL:-qwen3:4b-instruct}
@@ -22,9 +21,7 @@ services:
       RAG_DISTANCE: ${RAG_DISTANCE:-55}
       RAG_CACHE_DIR: /root/.cache/mo3_ml_hw10_rag
     volumes:
-      # корень репо: labs/ML-HW10 + data для RAG
       - ..:/repo:ro
-      # уже собранный FAISS-кэш с хоста
       - ${USERPROFILE}/.cache/mo3_ml_hw10_rag:/root/.cache/mo3_ml_hw10_rag
     extra_hosts:
       - "host.docker.internal:host-gateway"

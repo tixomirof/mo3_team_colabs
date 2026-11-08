@@ -219,6 +219,8 @@ def ollama_generate(
             "top_k": params.top_k,
             "top_p": params.top_p,
             "num_predict": params.max_new_tokens,
+            # иначе Ollama поднимает огромный ctx (65k) и ответ идёт минутами
+            "num_ctx": int(os.getenv("OLLAMA_NUM_CTX", "4096")),
         },
     }
     base = os.getenv("LLM_BASE_URL", os.getenv("OLLAMA_BASE_URL", OLLAMA_URL)).rstrip("/")

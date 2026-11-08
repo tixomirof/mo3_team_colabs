@@ -1,29 +1,18 @@
 # Local AI Chat + RAG по резюме
 
-Чат в браузере. По умолчанию отвечает **RAG** по `data/resumes_ru_6000_labeled.csv` через Ollama (`qwen3:4b-instruct`).
+Чат в браузере. RAG + Ollama (`qwen3:4b-instruct`).
 
-## Запуск
+## Запуск / остановка (web + LLM вместе)
 
-1. Ollama с моделью:
-   ```bash
-   ollama pull qwen3:4b-instruct
-   ```
-2. Один раз построить FAISS (кэш в `~/.cache/mo3_ml_hw10_rag/`):
-   ```bash
-   cd labs/ML-HW10
-   set LLM_MODEL=qwen3:4b-instruct
-   python -c "from rag_system import ensure_resume_indices; print({k:v['index'].ntotal for k,v in ensure_resume_indices().items()})"
-   ```
-3. Web:
-   ```bash
-   cd web
-   set LLM_BACKEND=ollama
-   set LLM_MODEL=qwen3:4b-instruct
-   set RAG_ENABLED=1
-   set RAG_BASE=resumes_no_tags
-   python -m uvicorn main:app --host 127.0.0.1 --port 8000
-   ```
-4. Открыть http://127.0.0.1:8000
+```powershell
+cd web
+.\start.ps1          # поднимает Ollama на хосте и контейнер chat_web
+.\stop.ps1           # гасит контейнер и Ollama/llama-server
+```
+
+Открыть http://127.0.0.1:8000
+
+`start.ps1` / `stop.ps1` — основной способ: LLM живёт вместе с вебом (старт/стоп одной командой).
 
 ## Переменные
 
@@ -31,8 +20,16 @@
 |---|---|---|
 | `RAG_ENABLED` | `1` | RAG вкл/выкл |
 | `RAG_BASE` | `resumes_no_tags` | или `resumes_with_tags` |
-| `RAG_TOP_K` | `3` | сколько документов в контекст |
-| `RAG_DISTANCE` | `55` | порог L2; выше = жёстче «нет данных» |
+| `RAG_TOP_K` | `5` | сколько документов в контекст |
+| `RAG_DISTANCE` | `55` | порог L2 |
 | `LLM_MODEL` | `qwen3:4b-instruct` | модель Ollama |
+
+## Один раз: FAISS-кэш
+
+```powershell
+cd labs\ML-HW10
+$env:LLM_MODEL="qwen3:4b-instruct"
+python -c "from rag_system import ensure_resume_indices; print({k:v['index'].ntotal for k,v in ensure_resume_indices().items()})"
+```
 
 Ноутбук сдачи: `labs/ML-HW10/ML-HW10_RAG_resumes.ipynb`.
