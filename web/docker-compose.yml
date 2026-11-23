@@ -20,9 +20,17 @@ services:
       RAG_TOP_K: ${RAG_TOP_K:-5}
       RAG_DISTANCE: ${RAG_DISTANCE:-55}
       RAG_CACHE_DIR: /root/.cache/mo3_ml_hw10_rag
+      HW11_REPO_DIR: /repo
+      HW11_DATA_DIR: /repo/data/ML-HW11
+      HW11_INDEX_BUNDLE: ${HW11_INDEX_BUNDLE:-/repo/data/ML-HW11/indices.zip}
+      HW11_RUNTIME_DIR: /root/.cache/mo3-hw11
+      HW11_OLLAMA_CTX: ${HW11_OLLAMA_CTX:-16384}
+      OLLAMA_NUM_CTX: ${HW11_OLLAMA_CTX:-16384}
+      RAG_ENGINE: ${RAG_ENGINE:-auto}
     volumes:
       - ..:/repo:ro
       - ${USERPROFILE}/.cache/mo3_ml_hw10_rag:/root/.cache/mo3_ml_hw10_rag
+      - ${USERPROFILE}/.cache/mo3-hw11:/root/.cache/mo3-hw11
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped

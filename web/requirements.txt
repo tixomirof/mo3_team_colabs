@@ -6,3 +6,6 @@ numpy
 pandas
 faiss-cpu
 transformers
+filelock
+networkx
+lightrag-hku==1.5.7

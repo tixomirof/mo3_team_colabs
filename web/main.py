@@ -1,14 +1,15 @@
 import json
 import os
 import sys
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import httpx
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-app = FastAPI()
+from hw11_backend import DEFAULT_MODE, MODES, create_engine
 
 LLM_BACKEND = os.getenv("LLM_BACKEND", "ollama").strip().lower()
 LLM_BASE_URL = os.getenv(
@@ -30,18 +31,23 @@ RAG_ENABLED = os.getenv("RAG_ENABLED", "1").strip() not in {"0", "false", "False
 RAG_BASE = os.getenv("RAG_BASE", "resumes_no_tags")
 RAG_TOP_K = int(os.getenv("RAG_TOP_K", "5"))
 RAG_DISTANCE = float(os.getenv("RAG_DISTANCE", "55"))
+# auto: HW11, если поднялся; иначе прежний RAG из 10-й лабы.
+RAG_ENGINE = os.getenv("RAG_ENGINE", "auto").strip().lower()
 
 _rag_pack = None
+_hw11 = None
 
 
 def _provider_label() -> str:
+    if _hw11 is not None and _hw11.ready:
+        return "ML-HW11 RAG"
     if RAG_ENABLED:
         return f"RAG/{RAG_BASE}"
     return "Ollama" if LLM_BACKEND == "ollama" else "llama-server"
 
 
 def _repo_root() -> Path:
-    env = os.getenv("REPO_ROOT")
+    env = os.getenv("HW11_REPO_DIR") or os.getenv("REPO_ROOT")
     if env:
         return Path(env).resolve()
     return Path(__file__).resolve().parents[1]
@@ -53,6 +59,8 @@ def _load_rag():
         return _rag_pack
     root = _repo_root()
     hw = root / "labs" / "ML-HW10"
+    if not hw.is_dir():
+        hw = root / "ML-HW10"
     if str(hw) not in sys.path:
         sys.path.insert(0, str(hw))
     from rag_system import GenParams, ensure_resume_indices, rag_answer
@@ -68,8 +76,42 @@ def _load_rag():
     return _rag_pack
 
 
+def _use_hw11() -> bool:
+    if _hw11 is None or not _hw11.ready:
+        return False
+    if RAG_ENGINE in {"legacy", "hw10"}:
+        return False
+    return True
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global _hw11
+    if RAG_ENGINE not in {"legacy", "hw10"} and RAG_ENABLED:
+        engine = create_engine()
+        try:
+            await engine.start()
+            _hw11 = engine
+        except Exception as error:
+            _hw11 = engine
+            engine.status = "error"
+            engine.detail = str(error)
+            engine.ready = False
+    try:
+        yield
+    finally:
+        if _hw11 is not None:
+            await _hw11.close()
+            _hw11 = None
+
+
+app = FastAPI(lifespan=lifespan)
+
+
 class ChatRequest(BaseModel):
     message: str
+    approach: str = Field(default="baseline")
+    mode: str = Field(default=DEFAULT_MODE)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -143,15 +185,43 @@ async def _stream_rag(message: str):
 
     out = await anyio.to_thread.run_sync(_run)
     answer = out.get("answer") or ""
-    # отдаём одним SSE-событием (RAG уже полный ответ)
-    yield f"data: {json.dumps({'content': answer}, ensure_ascii=False)}\n\n"
+    sources = []
+    for doc in out.get("relevant") or []:
+        sources.append({"id": "", "text": doc, "kind": "resume"})
+    payload = {"content": answer}
+    if sources:
+        payload["sources"] = {
+            "approach": "baseline",
+            "label": "Базовая RAG (ML-HW10)",
+            "mode": None,
+            "resumes": sources,
+            "groups": [],
+            "relations": [],
+            "chunks": [],
+        }
+    yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+async def _stream_hw11(message: str, approach: str, mode: str):
+    result = await _hw11.answer(message, approach, mode)
+    yield f"data: {json.dumps({'content': result['answer'], 'sources': result['sources'], 'meta': result.get('meta')}, ensure_ascii=False)}\n\n"
 
 
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
     async def generate():
         try:
-            if RAG_ENABLED:
+            approach = (request.approach or "baseline").strip().lower()
+            mode = (request.mode or DEFAULT_MODE).strip().lower()
+            if mode not in MODES:
+                mode = DEFAULT_MODE
+            if _use_hw11():
+                async for chunk in _stream_hw11(request.message, approach, mode):
+                    yield chunk
+            elif RAG_ENABLED:
+                if approach in {"long", "light"}:
+                    yield f"data: {json.dumps({'error': 'LongRAG и LightRAG недоступны: не загружен индекс ML-HW11. ' + ((_hw11.detail if _hw11 else '') or 'Проверьте data/ML-HW11/.')}, ensure_ascii=False)}\n\n"
+                    return
                 async for chunk in _stream_rag(request.message):
                     yield chunk
             else:
@@ -175,9 +245,18 @@ async def health():
         "model": MODEL,
         "rag_enabled": RAG_ENABLED,
         "rag_base": RAG_BASE if RAG_ENABLED else None,
+        "rag_engine": "hw11" if _use_hw11() else ("legacy" if RAG_ENABLED else None),
+        "hw11": None,
         "local": True,
     }
-    if RAG_ENABLED:
+    if _hw11 is not None:
+        info["hw11"] = {
+            "status": _hw11.status,
+            "ready": _hw11.ready,
+            "light_ready": _hw11.light_ready,
+            "detail": _hw11.detail,
+        }
+    if RAG_ENABLED and not _use_hw11():
         try:
             pack = _load_rag()["pack"]
             info["rag_docs"] = pack["index"].ntotal

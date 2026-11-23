@@ -19,9 +19,20 @@ from zipfile import ZipFile
 import httpx
 import numpy as np
 
-ROOT = Path(os.getenv("HW11_REPO_DIR", Path(__file__).resolve().parents[2]))
-WORK_DATA = ROOT / "data" / "ML-HW11"
-INDEX_BUNDLE = WORK_DATA / "indices.zip"
+def _repo_root():
+    env = os.getenv("HW11_REPO_DIR")
+    if env:
+        return Path(env).resolve()
+    start = Path(__file__).resolve().parent
+    for directory in (start, *start.parents):
+        if (directory / "data" / "ML-HW11").exists() or (directory / "labs" / "ML-HW10" / "rag_system.py").is_file():
+            return directory
+    return Path(__file__).resolve().parents[2]
+
+
+ROOT = _repo_root()
+WORK_DATA = Path(os.getenv("HW11_DATA_DIR", str(ROOT / "data" / "ML-HW11")))
+INDEX_BUNDLE = Path(os.getenv("HW11_INDEX_BUNDLE", str(WORK_DATA / "indices.zip")))
 MODEL = "qwen3:4b-instruct"
 TOKENIZER = "Qwen/Qwen3-4B-Instruct-2507"
 EMBEDDINGS = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"

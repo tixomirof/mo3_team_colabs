@@ -42,8 +42,23 @@ Write-Host "Ollama is up."
 
 Write-Host "Ensuring model $Model ..."
 & ollama pull $Model | Out-Host
+# Снимок LightRAG собран при num_ctx=16384. Если модель уже загружена с другим окном, выгружаем её.
+try { & ollama stop $Model 2>&1 | Out-Null } catch { }
+
 
 New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.cache\mo3_ml_hw10_rag" | Out-Null
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.cache\mo3-hw11" | Out-Null
+
+$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+if (-not $env:HW11_REPO_DIR) { $env:HW11_REPO_DIR = $RepoRoot }
+$Bundle = if ($env:HW11_INDEX_BUNDLE) { $env:HW11_INDEX_BUNDLE } else { Join-Path $RepoRoot "data\ML-HW11\indices.zip" }
+if (Test-Path $Bundle) {
+    Write-Host "HW11 indices: $Bundle"
+} else {
+    Write-Host "WARNING: не найден $Bundle"
+    Write-Host "Положите готовый архив в data\ML-HW11\indices.zip или задайте HW11_INDEX_BUNDLE."
+    Write-Host "Без него в чате останется только базовая RAG 10-й лабы, LongRAG/LightRAG не запустятся."
+}
 
 Write-Host "Starting web container..."
 docker compose up -d --build
