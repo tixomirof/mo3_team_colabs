@@ -40,6 +40,43 @@ EXTRA = [
 ]
 
 
+# Три показательных вопроса, подобранные перебором ~20 формулировок «кто из сферы X»
+# на обеих базах (baseline-настройки). Ожидаемые номера — по разметке class.
+SHOWCASE = [
+    {"q": "Есть ли в базе специалисты по финансам и бухгалтерии?", "kind": "category",
+     "expected": "Кандидат №16, №17, №18", "ids": [16, 17, 18]},
+    {"q": "Кого можно взять на работу в поликлинику?", "kind": "category",
+     "expected": "Кандидат №3 (медицинский представитель)", "ids": [3]},
+    {"q": "Кто из кандидатов работает в медицине и здравоохранении?", "kind": "category",
+     "expected": "По разметке №1, №2, №3; по тексту резюме к медицине относится только №3", "ids": [3]},
+]
+
+
+def showcase():
+    """Топ-3 поиска и ответ на baseline-настройках для SHOWCASE на обеих базах."""
+    from rag_system import GenParams, rag_answer
+    OUT.mkdir(parents=True, exist_ok=True)
+    base = GenParams(temperature=0.1, top_k=50, top_p=0.8, max_new_tokens=100)
+    rows = []
+    for name, tags in (("resumes_with_tags", True), ("resumes_no_tags", False)):
+        docs, _ = load_resume_documents(with_tags=tags, n=18)
+        index = build_faiss(embed_texts(docs, batch_size=16))
+        for q in SHOWCASE:
+            hits, dists = retrieve(q["q"], index, docs, top_k=3)
+            t0 = time.time()
+            out = rag_answer(q["q"], index, docs, top_k=3, distance_threshold=THRESHOLD, params=base, lang="ru")
+            top = [(int(re.match(r"Кандидат №(\d+)", d).group(1)), float(x)) for d, x in zip(hits, dists)]
+            rows.append({
+                "dataset": name, "question": q["q"], "expected": q["expected"],
+                "top3": ", ".join(f"№{n} ({x:.2f})" for n, x in top[:3]),
+                "n_relevant": len(out["relevant"]), "answer": out["answer"],
+                "sec": round(time.time() - t0, 2),
+            })
+            print(name, "|", q["q"], "|", rows[-1]["top3"], "|", out["answer"][:120], flush=True)
+    pd.DataFrame(rows).to_csv(OUT / "showcase_tags.csv", index=False, encoding="utf-8-sig")
+    print("Saved", OUT / "showcase_tags.csv")
+
+
 def expected_ids(q):
     if "ids" in q:
         return q["ids"]
@@ -121,4 +158,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if sys.argv[1:] == ["showcase"]:
+        showcase()
+    else:
+        main()
