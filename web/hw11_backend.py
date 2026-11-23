@@ -38,10 +38,12 @@ CHAT_INSTRUCTION = (
     "Откажись, только если в материалах нет ничего релевантного вопросу: тогда напиши "
     f"ровно одну фразу «{REFUSAL}». "
     "Если есть хотя бы частично подходящие резюме, ответь по ним и не отказывайся. "
+    "Перечисляй не больше пяти кандидатов, по одной строке на каждого. "
     "Не перечисляй нерелевантных кандидатов и не пиши рассуждения. "
     "Не отвечай одной только ссылкой без предложения."
 )
 CHAT_TEMPERATURE = 0.25
+CHAT_ANSWER_LIMIT = 1024
 SNIPPET_LIMIT = 150
 MAX_RELATIONS = 3
 CITATION_RE = re.compile(
@@ -97,9 +99,9 @@ def chat_model() -> str:
     return os.getenv("LLM_MODEL") or os.getenv("OLLAMA_MODEL") or "qwen3:4b-instruct"
 
 
-def approach_label(approach: str, mode: str | None = None) -> str:
+def approach_label(approach: str, mode: str | None = None, tags: bool = False) -> str:
     if approach == "baseline":
-        return "Базовая RAG"
+        return "Базовая RAG · с тегами" if tags else "Базовая RAG"
     if approach == "long":
         return "LongRAG"
     return f"LightRAG {mode or 'mix'}"
@@ -238,8 +240,34 @@ def polish_answer(text: str) -> str:
     if is_full_refusal(text):
         return REFUSAL
     text = normalize_citations(text)
+    text = tidy_candidate_list(text)
     text = fix_citation_periods(text)
     return ensure_period(text)
+
+
+LIST_LIMIT = 5
+
+
+def tidy_candidate_list(text: str) -> str:
+    """Убираем хвостовой отказ при найденных кандидатах и сжимаем длинный список."""
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    cited = [line for line in lines if cited_ids(line)]
+    if not cited:
+        return text
+    lines = [line for line in lines if not is_full_refusal(line)]
+    cited = [line for line in lines if cited_ids(line)]
+    if len(cited) < 2:
+        return "\n".join(lines)
+    head = [line for line in lines if not cited_ids(line)][:1] if not cited_ids(lines[0]) else []
+    items = ["- " + line.lstrip("-•* ").strip() for line in cited]
+    shown = {label for line in cited[:LIST_LIMIT] for label in cited_ids(line)}
+    rest = []
+    for line in cited[LIST_LIMIT:]:
+        rest.extend(label for label in cited_ids(line) if label not in rest and label not in shown)
+    out = head + items[:LIST_LIMIT]
+    if rest:
+        out.append("Также подходят: " + ", ".join(f"[{label}]" for label in rest) + ".")
+    return "\n".join(out)
 
 
 def expand_citation_only(text: str) -> str:
@@ -465,7 +493,8 @@ def mock_resumes():
     return rows
 
 
-def present_sources(result: dict, approach: str, mode: str | None, answer: str | None = None, corpus: dict | None = None) -> dict:
+def present_sources(result: dict, approach: str, mode: str | None, answer: str | None = None, corpus: dict | None = None,
+                    tags: bool = False) -> dict:
     """Только записи, на которые ссылается итоговый ответ, с короткими сниппетами."""
     text = answer if answer is not None else result.get("answer") or ""
     retrieved = {item.get("id", ""): item for item in result.get("sources") or [] if item.get("id")}
@@ -480,7 +509,8 @@ def present_sources(result: dict, approach: str, mode: str | None, answer: str |
             used_ids.append(public)
     payload = {
         "approach": approach,
-        "label": approach_label(approach, mode),
+        "label": approach_label(approach, mode, tags and approach == "baseline"),
+        "tags": bool(tags and approach == "baseline"),
         "model": chat_model(),
         "mode": mode if approach == "light" else None,
         "used": bool(used_ids),
@@ -657,6 +687,35 @@ class Hw11Engine:
         self.status = "not-started"
         self.detail = ""
         self.resume_texts = {}
+        self.tagged_study = None
+        self._tagged_task = None
+
+    def tagged_index(self):
+        """База с тегами для базовой RAG: «Категория: X» как в ML-HW10 with_tags, отдельный кэш."""
+        from dataclasses import replace as _replace
+        try:
+            from labs.ml_hw11.core import ResumeIndex, runtime_dir
+        except ImportError:
+            from ml_hw11.core import ResumeIndex, runtime_dir
+        rows = [_replace(row, text=f"Категория: {row.category}\n{row.text}") for row in self.index.resumes]
+        index = ResumeIndex(rows, runtime_dir() / "tags", vector_bundle=None)
+        index.baseline_index  # строит или читает кэш векторов
+        return index
+
+    async def ensure_tagged(self):
+        import asyncio
+        if self.tagged_study is not None:
+            return self.tagged_study
+        if self._tagged_task is None:
+            self._tagged_task = asyncio.create_task(asyncio.to_thread(self.tagged_index))
+        try:
+            index = await self._tagged_task
+        except Exception:
+            self._tagged_task = None  # следующий запрос попробует снова
+            raise
+        if self.tagged_study is None:
+            self.tagged_study = self.study.__class__(index, self.ollama, system_prompt=CHAT_INSTRUCTION)
+        return self.tagged_study
 
     def config_for(self, approach: str, mode: str = DEFAULT_MODE):
         _prepare_imports(self.root)
@@ -682,6 +741,10 @@ class Hw11Engine:
         except ImportError:
             from ml_hw11.core import Ollama, ResumeIndex, Study, load_corpus, runtime_dir
             from ml_hw11.light import LightIndex
+        import sys as _sys
+        # Длинные списки кандидатов не влезали в 512 токенов ответа.
+        _core = _sys.modules[Study.__module__]
+        _core.ANSWER_LIMIT = max(getattr(_core, "ANSWER_LIMIT", 512), CHAT_ANSWER_LIMIT)
 
         bundle = bundle_path(self.root)
         if not corpus_available(self.root):
@@ -705,6 +768,9 @@ class Hw11Engine:
         # LightRAG по-прежнему отдаёт только контекст (only_need_context=True в модуле лабы).
         self.study = Study(self.index, self.ollama, system_prompt=CHAT_INSTRUCTION)
         self.ready = True
+        # База с тегами строится в фоне (первый раз ~1 мин, потом из кэша) и не задерживает старт.
+        import asyncio as _asyncio
+        self._tagged_task = _asyncio.create_task(_asyncio.to_thread(self.tagged_index))
         self.status = "ready"
         self.detail = f"Окно Ollama: {self.ollama.context} токенов."
         if not bundle.is_file():
@@ -747,20 +813,37 @@ class Hw11Engine:
         self.ready = False
         self.light_ready = False
 
-    async def answer(self, question: str, approach: str, mode: str = DEFAULT_MODE) -> dict:
+    async def answer(self, question: str, approach: str, mode: str = DEFAULT_MODE, tags: bool = False) -> dict:
         if not self.ready or self.study is None:
             raise RuntimeError(self.detail or "Движок ML-HW11 ещё не готов.")
+        tags = bool(tags) and approach == "baseline"
+        study = await self.ensure_tagged() if tags else self.study
         if approach == "light" and not self.light_ready:
             raise RuntimeError(self.detail or "Индекс LightRAG не загружен.")
         config = self.config_for(approach, mode)
         # Study.answer не кэширует ответы: кэш есть только у Experiment в ноутбуке.
         # Пустой контекст сразу даёт REFUSAL без вызова Ollama (время ≈ поиск).
-        context = await self.study.retrieve(question, config)
-        context = inject_named_into_context(self.study, question, config, context)
-        result = await self.study.answer(question, config, context=context, seed=42)
+        context = await study.retrieve(question, config)
+        context = inject_named_into_context(study, question, config, context)
+        result = None
+        for seed in (42, 43):
+            try:
+                result = await study.answer(question, config, context=context, seed=seed)
+                break
+            except RuntimeError as error:
+                if type(error).__name__ != "IncompleteGeneration":
+                    raise
+                partial = (getattr(error, "result", {}) or {}).get("answer") or ""
+        if result is None:
+            text = partial.strip()
+            cut = text.rfind("\n")
+            text = text[:cut].strip() if cut > 0 else text
+            if not text:
+                raise RuntimeError("Ollama вернул пустой или незавершённый ответ.")
+            result = {"answer": text, "used_ollama": True, "sources": {}}
         answer = polish_answer(result.get("answer") or "")
         if is_citation_only(answer) and result.get("used_ollama"):
-            retry = await self.study.answer(question, config, context=context, seed=43)
+            retry = await study.answer(question, config, context=context, seed=43)
             retry_answer = polish_answer(retry.get("answer") or "")
             if not is_citation_only(retry_answer) and not is_full_refusal(retry_answer):
                 result, answer = retry, retry_answer
@@ -768,12 +851,13 @@ class Hw11Engine:
             answer = expand_citation_only(answer)
         sources = present_sources(
             result, approach, config.mode if approach == "light" else None, answer,
-            corpus=self.resume_texts,
+            corpus=self.resume_texts, tags=tags,
         )
         return {
             "answer": answer,
             "sources": sources,
-            "meta": {"label": sources["label"], "model": sources["model"], "approach": sources["approach"]},
+            "meta": {"label": sources["label"], "model": sources["model"], "approach": sources["approach"],
+                     "tags": sources["tags"]},
             "input_tokens": result.get("input_tokens"),
             "seconds": result.get("seconds"),
         }
@@ -818,7 +902,7 @@ class MockEngine:
     async def close(self) -> None:
         return None
 
-    async def answer(self, question: str, approach: str, mode: str = DEFAULT_MODE) -> dict:
+    async def answer(self, question: str, approach: str, mode: str = DEFAULT_MODE, tags: bool = False) -> dict:
         self.config_for(approach, mode)
         lowered = (question or "").casefold()
         refusal = "kubernetes" in lowered or "e-awb" in lowered
@@ -921,11 +1005,12 @@ class MockEngine:
         if is_citation_only(answer):
             answer = expand_citation_only(answer)
         sources = present_sources(result, approach, mode if approach == "light" else None, answer,
-                                  corpus=self.resume_texts)
+                                  corpus=self.resume_texts, tags=tags)
         return {
             "answer": answer,
             "sources": sources,
-            "meta": {"label": sources["label"], "model": sources["model"], "approach": sources["approach"]},
+            "meta": {"label": sources["label"], "model": sources["model"], "approach": sources["approach"],
+                     "tags": sources["tags"]},
             "input_tokens": 0,
             "seconds": 0.0,
         }

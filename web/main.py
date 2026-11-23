@@ -112,6 +112,7 @@ class ChatRequest(BaseModel):
     message: str
     approach: str = Field(default="baseline")
     mode: str = Field(default=DEFAULT_MODE)
+    tags: bool = Field(default=False)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -202,8 +203,8 @@ async def _stream_rag(message: str):
     yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
 
-async def _stream_hw11(message: str, approach: str, mode: str):
-    result = await _hw11.answer(message, approach, mode)
+async def _stream_hw11(message: str, approach: str, mode: str, tags: bool = False):
+    result = await _hw11.answer(message, approach, mode, tags=tags)
     yield f"data: {json.dumps({'content': result['answer'], 'sources': result['sources'], 'meta': result.get('meta')}, ensure_ascii=False)}\n\n"
 
 
@@ -216,7 +217,7 @@ async def chat(request: ChatRequest):
             if mode not in MODES:
                 mode = DEFAULT_MODE
             if _use_hw11():
-                async for chunk in _stream_hw11(request.message, approach, mode):
+                async for chunk in _stream_hw11(request.message, approach, mode, bool(request.tags) and approach == "baseline"):
                     yield chunk
             elif RAG_ENABLED:
                 if approach in {"long", "light"}:

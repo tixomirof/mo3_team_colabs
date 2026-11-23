@@ -1,0 +1,26 @@
+﻿settings,resumes_no_tags,resumes_with_tags
+baseline top_k_search=3 temp=0.1 top_k_gen=50 top_p=0.8,1.43,1.57
+temperature=0.1 repeat=1,2.0,2.0
+temperature=0.1 repeat=2,2.0,2.0
+temperature=0.1 repeat=3,2.0,2.0
+temperature=0.4 repeat=1,2.0,2.0
+temperature=0.4 repeat=2,2.0,2.0
+temperature=0.4 repeat=3,2.0,2.0
+temperature=0.7 repeat=1,2.0,2.0
+temperature=0.7 repeat=2,2.0,2.0
+temperature=0.7 repeat=3,2.0,2.0
+temperature=1.0 repeat=1,2.0,2.0
+temperature=1.0 repeat=2,2.0,2.0
+temperature=1.0 repeat=3,2.0,2.0
+top_k_gen=10,1.43,1.57
+top_k_gen=100,1.43,1.57
+top_k_gen=5,1.43,1.57
+top_k_gen=50,1.43,1.57
+top_k_search=1 (остальное baseline),1.43,1.57
+top_k_search=10 (остальное baseline),1.43,1.86
+top_k_search=3 (остальное baseline),1.43,1.57
+top_k_search=5 (остальное baseline),1.43,1.57
+top_p=0.3,1.43,1.57
+top_p=0.5,1.43,1.57
+top_p=0.8,1.43,1.57
+top_p=1.0,1.43,1.57
